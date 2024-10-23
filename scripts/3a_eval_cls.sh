@@ -1,3 +1,3 @@
-conda activate NOVUM
+conda activate novum
 
-python ../src/inference.py --config config.yaml
+python ../src/create_p3d.py --config config/default.yaml

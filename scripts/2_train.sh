@@ -1,1 +1,3 @@
-# will be published on Saturday, 12th October 2024
+conda activate novum
+
+python ../src/train.py --config config/default.yaml
