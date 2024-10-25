@@ -4,8 +4,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from dataset.kp_list import class_list as ALL_CLASSES
-
 
 def one_hot(y, max_size=None):
     if not max_size:
@@ -22,6 +20,7 @@ def mask_remove_near(
     img_label,
     pad_index,
     zeros,
+    nb_classes,
     dtype_template=None,
     num_neg=0,
     neg_weight=1,
@@ -57,7 +56,7 @@ def mask_remove_near(
                 zeros = torch.zeros(
                     tem.shape[0],
                     tem.shape[1],
-                    tem.shape[1] * len(ALL_CLASSES),
+                    tem.shape[1] * nb_classes,
                 ).type_as(dtype_template)
 
             for i in range(tem.shape[0]):
@@ -84,10 +83,10 @@ def mask_remove_near(
             )
 
 
-def fun_label_onehot(img_label, count_label):
-    ret = torch.zeros(img_label.shape[0], len(ALL_CLASSES)).to(img_label.device)
+def fun_label_onehot(img_label, count_label, nb_classes):
+    ret = torch.zeros(img_label.shape[0], nb_classes).to(img_label.device)
     ret = ret.scatter_(1, img_label.unsqueeze(1), 1.0).to(img_label.device)
-    for i in range(len(ALL_CLASSES)):
+    for i in range(nb_classes):
         count = count_label[i]
         if count == 0:
             continue
@@ -105,13 +104,15 @@ class FeatureBank(nn.Module):
         momentum=0.5,
         max_groups=-1,
         num_noise=-1,
+        nb_classes=12,
     ):
         super().__init__()
         self.nLem = outputSize
 
         self.register_buffer("params", torch.tensor([1, T, -1, momentum]))
         stdv = 1.0 / math.sqrt(inputSize / 3)
-        self.single_feature_dim = int(num_pos / len(ALL_CLASSES))
+        self.nb_classes = nb_classes
+        self.single_feature_dim = int(num_pos / self.nb_classes)
 
         self.memory = torch.rand(outputSize, inputSize).mul_(2 * stdv).add_(-stdv)
         self.memory.requires_grad = False
@@ -143,8 +144,8 @@ class FeatureBank(nn.Module):
         # n = batch_size
         n_pos = self.num_pos
         n_neg = self.num_noise
-        count_label = torch.bincount(img_label, minlength=len(ALL_CLASSES))
-        label_weight_onehot = fun_label_onehot(img_label, count_label)
+        count_label = torch.bincount(img_label, minlength=self.nb_classes)
+        label_weight_onehot = fun_label_onehot(img_label, count_label, self.nb_classes)
 
         # set max_group is it is explicitly given. (We give max_group as 512, so not in our case)
         if (

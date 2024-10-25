@@ -8,12 +8,12 @@ from PIL import Image
 import pickle
 import cv2
 import math
-from dataset.kp_list import mesh_len
 from lib.config import load_config, parse_args
+
+mesh_len = {'aeroplane': 8, 'bicycle': 6, 'boat': 6, 'bottle': 8, 'bus': 6, 'car': 10, 'chair': 10, 'diningtable': 6, 'motorbike': 5, 'sofa': 6, 'train': 4, 'tvmonitor': 4}
 
 args = parse_args()
 config = load_config(args, load_default_config=True, log_info=False)
-
 
 project_dir = Path(__file__).resolve().parent
 root = Path(config.dataset.paths.root)
