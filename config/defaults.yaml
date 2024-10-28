@@ -9,10 +9,11 @@ dataset:
     eval_ood: "Classification_PASCAL3D_OCC_NeMo"
     img_list: "lists3D_single"
     annot: "annotations3D_single"
-    mesh: "PASCAL3D+_release1.1/CAD_single/%s/01.off"
+    mesh: "PASCAL3D+_release1.1/CAD_single"
 
   class_name: dataset.Pascal3DPlus
   distance: 5.0
+  weighted: true
   image_size:
     - 640
     - 800

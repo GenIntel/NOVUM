@@ -17,7 +17,7 @@ class Pascal3DPlus(Dataset):
         
         self.for_test = test
         self.max_n = max_n
-        self.transforms = transforms  # TODO: can i move it to the config?
+        self.transforms = transforms
 
         self.occlusion = occlusion
         assert self.occlusion in config.occlusion_levels, f"Invalid occlusion level, must be one of {config.occlusion_levels}"
@@ -26,7 +26,7 @@ class Pascal3DPlus(Dataset):
             config.paths.root, 
             config.paths.eval_ood if self.occlusion else config.paths.eval_iid,
         )
-        self.weighted = config.weighted  # todo add to config
+        self.weighted = config.weighted
 
         self.image_path = root_path / config.paths.imgs
         self.annotation_path = root_path / config.paths.annot
