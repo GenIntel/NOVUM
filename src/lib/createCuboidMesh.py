@@ -154,13 +154,13 @@ def meshelize(x_range, y_range, z_range, number_vertices):
 
 
 def create_cuboid_mesh(input_path:Path, output_path:Path, number_vertices:int = 1000, linear_coverage:float = 0.99):
-    # list dir
     for cate_path in input_path.iterdir():
+        if not cate_path.is_dir():
+            continue
         cate_output_path = output_path / cate_path.name
         cate_output_path.mkdir(exist_ok=True, parents=True)
         f_names = cate_path.glob("*.off")
-        f_names = [t for t in f_names if len(t) < 7]
-
+        f_names = [t.name for t in f_names if len(t.name) < 7]
         vertices = []
         for f_name in f_names:
             vertices_, _ = load_off(cate_path / f_name)

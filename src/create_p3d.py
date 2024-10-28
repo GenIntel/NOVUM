@@ -27,15 +27,16 @@ create_cuboid_mesh(
 )
 
 # generate 3D annotations
-def generate_3D_annotations(config, base_path):
+def generate_3D_annotations(config, base_path, occlusion=""):
     error_case = list()
     for cate in config.dataset.classes:
+        cate_ = cate + occlusion
         mesh_path = str(Path(config.dataset.paths.root, config.dataset.paths.mesh, cate, "01.off"))
-        destination_path = str(Path(base_path, config.dataset.paths.annot, cate))
-        save_list_path = str(Path(base_path, config.dataset.paths.img_list, cate))
-        source_path = str(Path(base_path, 'annotations', cate))
-        source_list_path = str(Path(base_path, 'lists', cate))
-        image_dir = str(Path(base_path, 'images', cate))
+        destination_path = str(Path(base_path, config.dataset.paths.annot, cate_))
+        save_list_path = str(Path(base_path, config.dataset.paths.img_list, cate_))
+        source_path = str(Path(base_path, 'annotations', cate_))
+        source_list_path = str(Path(base_path, 'lists', cate_))
+        image_dir = str(Path(base_path, 'images', cate_))
 
         os.makedirs(destination_path, exist_ok=True)
 
@@ -64,7 +65,7 @@ def generate_3D_annotations(config, base_path):
                 annos['visible'] = vis
                 np.savez(os.path.join(destination_path, fname), **annos)
             except:
-                error_case.append(cate + ' ' + fname)
+                error_case.append(cate_ + ' ' + fname)
 
         file_name_pendix = '.JPEG'
         os.makedirs(save_list_path, exist_ok=True)
@@ -477,19 +478,16 @@ for occlusion in config.dataset.occlusion_levels:
                 fl.write(t_)
     print(f"Processed images with occlusion level: {occlusion}")
 
-# generate 3D annotations
-# for iid evaluation
-if "" in config.dataset.occlusion_levels:
-    save_path_val_iid = Path(
-        config.dataset.paths.root, 
-        config.dataset.paths.eval_iid
-    )
-    generate_3D_annotations(config, base_path=save_path_val_iid)
-
-# for ood occlusion evaluation
-if not (config.dataset.occlusion_levels == [""]):
-    save_path_val_ood = Path(
-        config.dataset.paths.root, 
-        config.dataset.paths.eval_ood
-    )
-    generate_3D_annotations(config, base_path=save_path_val_ood)
+# generate 3D annotations for test set
+for occlusion in config.dataset.occlusion_levels:
+    if occlusion == "":
+        path = Path(
+            config.dataset.paths.root, 
+            config.dataset.paths.eval_iid
+        )
+    else:
+        path = Path(
+            config.dataset.paths.root, 
+            config.dataset.paths.eval_ood
+        )
+    generate_3D_annotations(config, base_path=path, occlusion=occlusion)
