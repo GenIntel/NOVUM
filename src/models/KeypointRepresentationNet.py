@@ -26,20 +26,6 @@ class ResNetExt(nn.Module):
         self.extractor.add_module("5", net.layer2)
         self.extractor1 = net.layer3
         self.extractor2 = net.layer4
-        self.classifier = nn.Sequential(
-            net.avgpool,
-            nn.Flatten(),
-            nn.Linear(2048, 512),
-            nn.ReLU(True),
-            nn.Linear(512, nb_classes),
-        )
-        self.pose_estimator = nn.Sequential(
-            net.avgpool,
-            nn.Flatten(),
-            nn.Linear(2048, 512),
-            nn.ReLU(True),
-            nn.Linear(512, pose_output_size),
-        )
 
         self.upsample0 = DoubleConv(2048, 1024)
         self.upsample1 = Up(2048, 1024, 512)
