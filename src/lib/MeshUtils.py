@@ -1,8 +1,8 @@
 import BboxTools as bbt
 import numpy as np
-import pytorch3d.renderer.mesh.utils as utils
 import torch
 import torch.nn as nn
+import pytorch3d.renderer.mesh.utils as utils
 from pytorch3d.renderer import look_at_rotation
 from pytorch3d.renderer.mesh.rasterizer import Fragments
 from pytorch3d.structures import Meshes
@@ -44,7 +44,7 @@ def rotation_theta(theta, device_=None):
     # cos -sin  0
     # sin  cos  0
     # 0    0    1
-    if type(theta) == float or type(theta) == np.float64:
+    if isinstance(theta, (float, np.float64)):
         if device_ is None:
             device_ = "cpu"
         theta = torch.ones((1, 1, 1)).to(device_) * theta
@@ -191,7 +191,7 @@ class MeshInterpolateModule(nn.Module):
         self.update_memory(memory_bank=memory_bank, faces=faces)
 
         # Support multiple meshes at same time
-        if type(vertices) == list:
+        if isinstance(vertices, list):
             self.n_mesh = len(vertices)
             # Preprocess convert mesh in PASCAL3d+ standard to Pytorch3D
             verts = [pre_process_mesh_pascal(t) for t in vertices]
@@ -212,7 +212,7 @@ class MeshInterpolateModule(nn.Module):
         self.off_set_mesh = off_set_mesh
 
     def update_memory(self, memory_bank, faces=None):
-        if type(memory_bank) == list:
+        if isinstance(memory_bank, list):
             if faces is None:
                 faces = self.faces
             # Convert memory features of vertices to faces

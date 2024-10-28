@@ -47,3 +47,8 @@ The model weights can be downloaded a the following [link](https://github.com/Ge
 	 year    = {2024}
  }
  ```
+
+## Acknowledgements
+
+Special thanks to Nhi Pham for the help with the codebase. 
+```

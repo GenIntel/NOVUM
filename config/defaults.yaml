@@ -1,14 +1,14 @@
 workers: 4
-save_dir: "/data/lmbraid21/jesslen/NOVUM/results"
+save_dir: "/PATH/TO/DIR/FOR/STORING/RESULTS" # TODO: change this 
 overwrite: false
 dataset:
   paths:
-    root: "/data/lmbraid21/jesslen/TEST" # "/data/lmbraid21/jesslen/Pascal3DforNeMo/dataOld"
+    root: "/PATH/TO/ROOT/DATASET" # TODO: change this 
     training: "Classification_PASCAL3D_train_NeMo"
     eval_iid: "Classification_PASCAL3D_NeMo"
     eval_ood: "Classification_PASCAL3D_OCC_NeMo"
-    img_list: "lists3D_single"
-    annot: "annotations3D_single"
+    img_list: "lists3D_single" # can be anything except "lists"
+    annot: "annotations3D_single" # can be anything except "annotations"
     mesh: "PASCAL3D+_release1.1/CAD_single"
 
   class_name: dataset.Pascal3DPlus
@@ -55,7 +55,7 @@ model:
   adj_momentum: 0.9
   d_feature: 128
   local_size: 1
-  ckpt: "/data/lmbraid21/jesslen/Pascal3DforNeMo/dataOld/expClassification/2022_09_26/classification_saved_model_199.pth"
+  ckpt: "/PATH/TO/CHECKPOINT" # TODO: change this 
   down_sample_rate: 8
 
 training:
