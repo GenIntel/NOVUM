@@ -51,14 +51,15 @@ class Pascal3DPlus(Dataset):
                 self.label_list.append(label)
         else:
             for class_ in self.classes:
-                if class_.count(self.occlusion):
-                    deeper_dir = list_path / class_
-                    self.file_list = [
-                        os.path.join(class_, l.strip())
-                        for l in open(deeper_dir / "mesh01.txt").readlines()
-                    ] + self.file_list
-                else:
+                class_occ = class_ + self.occlusion
+                deeper_dir = list_path / class_occ
+                if not deeper_dir.exists():
+                    warnings.warn(f"Class {class_occ} not found in {list_path}, skipping it.")
                     continue
+                self.file_list = [
+                    os.path.join(class_occ, l.strip())
+                    for l in open(deeper_dir / "mesh01.txt").readlines()
+                ] + self.file_list
             for f_dir in self.file_list:
                 img_class = f_dir.split("/")[0].strip(self.occlusion)
                 label = self.classes.index(img_class)
