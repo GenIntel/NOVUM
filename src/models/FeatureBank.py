@@ -138,6 +138,16 @@ class FeatureBank(nn.Module):
     def clutter(self):
         return self.memory[self.num_pos:]
 
+    def features_of(self, class_, n_list_set):
+        start = class_*self.single_feature_dim
+        return self.memory[start:start+n_list_set[class_]]
+
+    def class_id_from_vertex_id(self, vertex_id):
+        return vertex_id // self.single_feature_dim
+
+    def cuboid_vertex_id_from_vertex_id(self, vertex_id):
+        return vertex_id % self.single_feature_dim
+
     # x: feature: [128, 128], y: indexes [128] -- a batch of data's index directly from the dataloader.
     def forward(self, x, y, visible, img_label):
         # k = feature_space

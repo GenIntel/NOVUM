@@ -14,18 +14,23 @@ from torchvision import transforms
 
 class Pascal3DPlus(Dataset):
     def __init__(self, config, occlusion, transforms, max_n, test=False, enable_cache=True):
-        
+
         self.for_test = test
         self.max_n = max_n
         self.transforms = transforms
 
         self.occlusion = occlusion
         assert self.occlusion in config.occlusion_levels, f"Invalid occlusion level, must be one of {config.occlusion_levels}"
-        
-        root_path = Path(
-            config.paths.root, 
-            config.paths.eval_ood if self.occlusion else config.paths.eval_iid,
-        )
+        if self.for_test:
+            root_path = Path(
+                config.paths.root, 
+                config.paths.eval_ood if self.occlusion else config.paths.eval_iid,
+            )
+        else:
+            root_path = Path(
+                config.paths.root, 
+                config.paths.train
+            )
         self.weighted = config.weighted
 
         self.image_path = root_path / config.paths.imgs
@@ -69,6 +74,8 @@ class Pascal3DPlus(Dataset):
         self.cache_img = dict()
         self.cache_anno = dict()
 
+    def __len__(self):
+        return len(self.file_list)
 
     def __getitem__(self, item):
         name_img = self.file_list[item]

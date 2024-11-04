@@ -50,12 +50,9 @@ class MeshLoader:
     def __init__(self, path):
         if os.path.isdir(path):
             file_list = os.listdir(path)
-
-            l = len(file_list)
-            file_list = ["%02d.off" % (i + 1) for i in range(l)]
+            file_list = ["%02d.off" % (i + 1) for i in range(len(file_list))]
         else:
             file_list = [path]
-            l = 1
         self.mesh_points_3d = []
         self.mesh_triangles = []
 
@@ -81,7 +78,7 @@ class MeshConverter:
         points_2d = np.flip(points_2d, axis=1)
         cam_3d = CameraTransformer(
             annos,
-        ).get_camera_position()  #  @ np.array([[-1, 0, 0], [0, 0, 1], [0, -1, 0]])
+        ).get_camera_position()  # np.array([[-1, 0, 0], [0, 0, 1], [0, -1, 0]])
 
         distance = np.sum((-points_3d - cam_3d.reshape(1, -1)) ** 2, axis=1) ** 0.5
         distance_ = normalization(distance)
@@ -113,7 +110,7 @@ class MeshConverter:
         points_2d = np.flip(points_2d, axis=1)
         cam_3d = CameraTransformer(
             annos,
-        ).get_camera_position()  #  @ np.array([[-1, 0, 0], [0, 0, 1], [0, -1, 0]])
+        ).get_camera_position()  # np.array([[-1, 0, 0], [0, 0, 1], [0, -1, 0]])
 
         distance = np.sum((-points_3d - cam_3d.reshape(1, -1)) ** 2, axis=1) ** 0.5
         distance_ = normalization(distance)
@@ -185,7 +182,7 @@ class MeshConverter:
         points_2d = Projector3Dto2D(annos)(points_3d).astype(np.int32)
         cam_3d = CameraTransformer(
             annos,
-        ).get_camera_position()  #  @ np.array([[-1, 0, 0], [0, 0, 1], [0, -1, 0]])
+        ).get_camera_position()  # np.array([[-1, 0, 0], [0, 0, 1], [0, -1, 0]])
 
         dist = np.sum((-points_3d - cam_3d.reshape(1, -1)) ** 2, axis=1) ** 0.5
         dist_ = normalization(dist)
