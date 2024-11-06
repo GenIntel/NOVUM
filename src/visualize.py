@@ -25,19 +25,20 @@ from lib.config import load_config, parse_args
 
 
 device_str = "cuda:0"
-# Cuboid with gradient color texture (used for visualization)
-texture_color_bank = torch.load(".../viz/texture_bank.pth", map_location="cuda:0")
-
 
 args = parse_args()
 config = load_config(args, load_default_config=False, log_info=False)
 
 #####
 # PARAMS TO SET
-viz_path = "/PATH/TO/VIZ_DIR"
+viz_path = "PATH/TO/VIZ"
 occ_level = ""
 clutter_th = 0.65  # Threshold for clutter
 #####
+
+# Cuboid with gradient color texture (used for visualization)
+texture_color_bank = torch.load(Path(viz_path, "texture_bank.pth"), map_location="cuda:0")
+
 assert occ_level in config.dataset.occlusion_levels, "Invalid occ_level"
 
 if occ_level:
@@ -50,9 +51,8 @@ classification_size = (int(config.dataset.image_size[0]), int(config.dataset.ima
 
 net = NetE2E(
     net_type="resnetext",
-    local_size=config.model.local_size,
+    local_size=(config.model.local_size, config.model.local_size),
     output_dimension=config.model.d_feature,
-    reduce_function=None,
     n_noise_points=config.model.num_noise,
     pretrain=True,
 )
@@ -71,7 +71,7 @@ print("Model loaded from " + config.model.ckpt)
 
 n_list_set = []
 for class_ in config.dataset.classes:
-    mesh_path = mesh_path_ref % class_
+    mesh_path = Path(config.dataset.paths.root, config.dataset.paths.mesh, class_)
     n_list = get_n_list(mesh_path)
     n_list_set.append(n_list[0])
 max_n = max(n_list_set)
@@ -108,22 +108,18 @@ raster_settings = RasterizationSettings(
 rasterizer = MeshRasterizer(cameras=cameras, raster_settings=raster_settings)
 
 #########################################################################
-with open(".../viz/file_list.txt", "r") as f:
+with open(Path(viz_path, "file_list.txt"), "r") as f:
     file_list = f.readlines()
 file_list = [x.strip() for x in file_list]  
-with open(".../viz/label_list.txt", "r") as f:
+with open(Path(viz_path, "label_list.txt"), "r") as f:
     label_list = f.readlines()
 label_list = [int(x.strip()) for x in label_list]  
 Pascal3D_dataset = Pascal3DPlus(
+    config=config.dataset,
     transforms=transforms,
-    rootpath=dataroot,
-    mesh_path=mesh_path_ref,
-    anno_path="annotations3D_single",
-    list_path="lists3D_single",
-    weighted=True,
     max_n=max_n,
-    data_pendix=occ_level,
-    for_test=True,
+    occlusion=occ_level,
+    test=True,
 )
 Pascal3D_dataset.file_list = file_list
 Pascal3D_dataset.label_list = label_list
@@ -161,7 +157,10 @@ for i, sample in enumerate(tqdm(Pascal3D_dataloader)):
     
     compare_bank = checkpoint["memory"][0 : (len(config.dataset.classes) * max_n)]
     weighted_nocs = {}
-    cls_of_interest = ["bus", "car", "sofa"]
+    # get 2 random classes
+    all_cls = config.dataset.classes.copy()
+    all_cls.remove(cls_name)
+    cls_of_interest = [cls_name] + np.random.choice(all_cls, 2, replace=False).tolist()
     for current_cls in [config.dataset.classes.index(cls_) for cls_ in cls_of_interest]:
         score_per_pixel = compare_bank[current_cls * max_n:(current_cls + 1) * max_n] @ features.reshape(
             features.shape[1],
@@ -180,10 +179,11 @@ for i, sample in enumerate(tqdm(Pascal3D_dataloader)):
         output_activation_nocs = output_activation_nocs.reshape(features.shape[2], features.shape[3], 3)        
 
         weighted_nocs[config.dataset.classes[current_cls]] = output_activation_nocs
-    img_name = cls_name + "/" + sample["this_name"][0]
     img_to_plot = compute_weighted_correspondances(
         weighted_nocs, img[0], img_name
     )
     # save image
     img_to_save = Image.fromarray(img_to_plot)
-    img_to_save.save(f"../viz/{img_name}.png")
+    path = Path(viz_path, "output", f"{img_name}.png")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img_to_save.save(path)

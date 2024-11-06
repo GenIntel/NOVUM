@@ -16,7 +16,7 @@ def compute_weighted_correspondances(activation_maps: dict, img_, img_name_):
 
     for class_index, current_cls in enumerate(class_of_interest):
         current_actmap = activation_maps[current_cls].clone()
-        current_actmap = (current_actmap.cpu().numpy()*255).astype(np.uint8)
+        current_actmap = (current_actmap.detach().cpu().numpy()*255).astype(np.uint8)
         current_actmap = cv2.cvtColor(current_actmap, cv2.COLOR_BGR2RGB)
         axes[class_index + 1].imshow(current_actmap)
         axes[class_index + 1].set_title(f"{current_cls}")
