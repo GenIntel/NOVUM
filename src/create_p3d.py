@@ -8,11 +8,84 @@ from PIL import Image
 import pickle
 import cv2
 import math
-from dataset.kp_list import mesh_len
 from lib.config import load_config, parse_args
+from lib.createCuboidMesh import create_cuboid_mesh
+from lib.MeshMemoryMap import MeshConverter
+from lib.CalculatePointDirection import cal_point_weight, direction_calculator
+mesh_len = {'aeroplane': 8, 'bicycle': 6, 'boat': 6, 'bottle': 8, 'bus': 6, 'car': 10, 'chair': 10, 'diningtable': 6, 'motorbike': 5, 'sofa': 6, 'train': 4, 'tvmonitor': 4}
 
 args = parse_args()
 config = load_config(args, load_default_config=True, log_info=False)
+
+
+# generate 3D cuboids 
+create_cuboid_mesh(
+    input_path=Path(config.dataset.paths.root, "PASCAL3D+_release1.1/CAD"), 
+    output_path=Path(config.dataset.paths.root, config.dataset.paths.mesh),
+    number_vertices=1000,
+    linear_coverage=0.99
+)
+
+# generate 3D annotations
+def generate_3D_annotations(config, base_path, occlusion=""):
+    error_case = list()
+    for cate in config.dataset.classes:
+        cate_ = cate + occlusion
+        mesh_path = str(Path(config.dataset.paths.root, config.dataset.paths.mesh, cate, "01.off"))
+        destination_path = str(Path(base_path, config.dataset.paths.annot, cate_))
+        save_list_path = str(Path(base_path, config.dataset.paths.img_list, cate_))
+        source_path = str(Path(base_path, 'annotations', cate_))
+        source_list_path = str(Path(base_path, 'lists', cate_))
+        image_dir = str(Path(base_path, 'images', cate_))
+
+        os.makedirs(destination_path, exist_ok=True)
+
+        manager = MeshConverter(path=mesh_path)
+
+        fl_list = os.listdir(source_path)
+
+        direction_dicts = []
+        for t in manager.loader:
+            direction_dicts.append(direction_calculator(*t))
+
+        for fname in fl_list:
+            if not config.overwrite and os.path.exists(os.path.join(destination_path, fname)):
+                continue
+            try:
+                annos = np.load(os.path.join(source_path, fname), allow_pickle=True)
+                annos = dict(annos)
+                annos['cad_index'] = 1
+                kps, vis = manager.get_one(annos)
+                idx = annos['cad_index'] - 1
+
+                weights = cal_point_weight(direction_dicts[idx], manager.loader[idx][0], annos)
+
+                annos['kp_weights'] = np.abs(weights)
+                annos['cropped_kp_list'] = kps
+                annos['visible'] = vis
+                np.savez(os.path.join(destination_path, fname), **annos)
+            except:
+                error_case.append(cate_ + ' ' + fname)
+
+        file_name_pendix = '.JPEG'
+        os.makedirs(save_list_path, exist_ok=True)
+        annos_list = [t.split('.')[0] + file_name_pendix for t in os.listdir(destination_path)]
+        imgs_list = [t.split('.')[0] + file_name_pendix for t in os.listdir(image_dir)]
+        inter_list_set = set(annos_list).intersection(set(imgs_list))
+        list_list = os.listdir(source_list_path)
+        out_names = []
+        for list_name in list_list:
+            fnames = open(os.path.join(source_list_path, list_name)).readlines()
+            fnames = [t.strip() for t in fnames]
+            fnames_useful = list(set(fnames).intersection(inter_list_set))
+            fnames_useful = [t + '\n' for t in fnames_useful]
+            out_names += fnames_useful
+
+        out_names = list(set(out_names))
+        out_string = ''.join(out_names)
+        with open(os.path.join(save_list_path, 'mesh01.txt'), 'w') as fl:
+            fl.write(out_string)
+    print('\nErrors At: ', error_case)
 
 
 project_dir = Path(__file__).resolve().parent
@@ -226,6 +299,7 @@ for category in config.dataset.classes:
         ) as fl:
             fl.write(t_)
 print(f"Processed training")
+generate_3D_annotations(config, base_path=train_root)
 
 # Evaluation
 for occlusion in config.dataset.occlusion_levels:
@@ -403,3 +477,17 @@ for occlusion in config.dataset.occlusion_levels:
             ) as fl:
                 fl.write(t_)
     print(f"Processed images with occlusion level: {occlusion}")
+
+# generate 3D annotations for test set
+for occlusion in config.dataset.occlusion_levels:
+    if occlusion == "":
+        path = Path(
+            config.dataset.paths.root, 
+            config.dataset.paths.eval_iid
+        )
+    else:
+        path = Path(
+            config.dataset.paths.root, 
+            config.dataset.paths.eval_ood
+        )
+    generate_3D_annotations(config, base_path=path, occlusion=occlusion)

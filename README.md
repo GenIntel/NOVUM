@@ -9,14 +9,13 @@ A few issues can still be found in the code. The branch `dev` is updated more fr
 ## Installation
 ### Start
 ```bash
-conda create -n novum python=3.9
-conda activate novum
-pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
+conda create -n xnovum python=3.12
+conda activate xnovum
+conda install pytorch-gpu==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install -c iopath iopath
+conda install pytorch3d -c pytorch3d
 conda install jupyter
 pip install scikit-image matplotlib imageio plotly opencv-python
-conda install -c fvcore -c conda-forge fvcore
-pip install black usort flake8 flake8-bugbear flake8-comprehensions
-pip install "git+https://github.com/facebookresearch/pytorch3d.git@0.6.2"
 ```
 
 ### Dataset prepration
@@ -50,3 +49,8 @@ The model weights can be downloaded a the following [link](https://github.com/Ge
 	 year    = {2024}
  }
  ```
+
+## Acknowledgements
+
+Special thanks to Nhi Pham for the help with the codebase. 
+```

@@ -166,6 +166,7 @@ for epoch in trange(config.training.total_epochs):
             num_neg=config.model.num_noise * config.model.max_group,
             img_label=img_label,
             pad_index=pad_index,
+            nb_classes=len(config.dataset.classes),
             zeros=zeros,
             dtype_template=similarity,
             neg_weight=config.training.weight_noise,

@@ -1,28 +1,7 @@
-import sys
-
 import numpy as np
 
-sys.path.append("..")
 from lib.MeshUtils import load_off, save_off
-import os
-import argparse
-
-global args
-parser = argparse.ArgumentParser(description="Create Cuboids")
-
-parser.add_argument("--CAD_path", type=str)
-parser.add_argument("--out_path", type=str)
-parser.add_argument("--number_vertices", default=1000, type=int)
-
-args = parser.parse_args()
-
-
-mesh_path = args.CAD_path + "/%s"
-target_path = args.out_path + "/%s"
-
-linear_coverage = 0.99
-number_vertices_ = args.number_vertices
-
+from pathlib import Path
 
 def meshelize(x_range, y_range, z_range, number_vertices):
     w, h, d = x_range[1] - x_range[0], y_range[1] - y_range[0], z_range[1] - z_range[0]
@@ -174,31 +153,27 @@ def meshelize(x_range, y_range, z_range, number_vertices):
     return np.array(out_vertices), np.array(out_faces)
 
 
-if __name__ == "__main__":
-    print("Creating Cuboid Mesh...")
-    cates = os.listdir(args.CAD_path)
-    for cate in cates:
-        # print('cate:', cate)
-        os.makedirs(target_path % cate, exist_ok=True)
-        f_names = os.listdir(mesh_path % cate)
-        f_names = [t for t in f_names if len(t) < 7 and ".off" in t]
-
+def create_cuboid_mesh(input_path:Path, output_path:Path, number_vertices:int = 1000, linear_coverage:float = 0.99):
+    for cate_path in input_path.iterdir():
+        if not cate_path.is_dir():
+            continue
+        cate_output_path = output_path / cate_path.name
+        cate_output_path.mkdir(exist_ok=True, parents=True)
+        f_names = cate_path.glob("*.off")
+        f_names = [t.name for t in f_names if len(t.name) < 7]
         vertices = []
         for f_name in f_names:
-            vertices_, faces = load_off(os.path.join(mesh_path % cate, f_name))
+            vertices_, _ = load_off(cate_path / f_name)
             vertices.append(vertices_)
 
         vertices = np.concatenate(vertices, axis=0)
         selected_shape = int(vertices.shape[0] * linear_coverage)
         out_pos = []
-
         for i in range(vertices.shape[1]):
             v_sorted = np.sort(vertices[:, i])
             v_group = v_sorted[selected_shape::] - v_sorted[0:-selected_shape]
             min_idx = np.argmin(v_group)
-            # print(min_idx, min_idx + selected_shape)
             out_pos.append((v_sorted[min_idx], v_sorted[min_idx + selected_shape]))
-        # print(out_pos)
-        xvert, xface = meshelize(*out_pos, number_vertices=number_vertices_)
+        xvert, xface = meshelize(*out_pos, number_vertices=number_vertices)
 
-        save_off(os.path.join(target_path % cate, "01.off"), xvert, xface)
+        save_off(cate_output_path / "01.off", xvert, xface)

@@ -26,20 +26,6 @@ class ResNetExt(nn.Module):
         self.extractor.add_module("5", net.layer2)
         self.extractor1 = net.layer3
         self.extractor2 = net.layer4
-        self.classifier = nn.Sequential(
-            net.avgpool,
-            nn.Flatten(),
-            nn.Linear(2048, 512),
-            nn.ReLU(True),
-            nn.Linear(512, nb_classes),
-        )
-        self.pose_estimator = nn.Sequential(
-            net.avgpool,
-            nn.Flatten(),
-            nn.Linear(2048, 512),
-            nn.ReLU(True),
-            nn.Linear(512, pose_output_size),
-        )
 
         self.upsample0 = DoubleConv(2048, 1024)
         self.upsample1 = Up(2048, 1024, 512)
@@ -48,15 +34,13 @@ class ResNetExt(nn.Module):
         if self.with_dropout:
             self.dropout = nn.Dropout(p=dropout_p)
 
-    def forward(self, x, return_all=False):
+    def forward(self, x):
         x1 = self.extractor(x)
         x2 = self.extractor1(x1)
         x3 = self.extractor2(x2)
         features = self.upsample2(self.upsample1(self.upsample0(x3), x2), x1)
         if self.with_dropout:
             features = self.dropout(features)
-        if return_all:
-            return features, self.classifier(x3), self.pose_estimator(x3)
         return features
 
     def freeze_features_extractor(self):
@@ -159,12 +143,8 @@ class NetE2E(nn.Module):
         self.n_noise_points = n_noise_points
 
     # forward
-    def forward_test(self, X, return_all=False):
-        res = self.net.forward(X, return_all=return_all)
-        if return_all:
-            X, y, z = res
-        else:
-            X = res
+    def forward_test(self, X):
+        X = self.net.forward(X)
 
         if self.output_dimension == -1:
             return F.normalize(X, p=2, dim=1)
@@ -191,10 +171,7 @@ class NetE2E(nn.Module):
             )
         # n, c, w, h
         # 1, 128, (w_original - 1) // 32 + 1, (h_original - 1) // 32 + 1
-        if return_all:
-            return F.normalize(X, p=2, dim=1), y, z
-        else:
-            return F.normalize(X, p=2, dim=1)
+        return F.normalize(X, p=2, dim=1)
 
     def forward(self, X, keypoint_positions, obj_mask=None, return_map=False):
         # X=torch.ones(1, 3, 224, 300), kps = torch.tensor([[(36, 40), (90, 80)]])
