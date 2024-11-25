@@ -2,10 +2,6 @@
 
 Code for the paper `NOVUM: Neural Object Volumes for Robust Object Classification`
 
-## Note
-A few issues can still be found in the code. The branch `dev` is updated more frequently. The final release should happen within November. Thanks for your understanding.
-
-
 ## Installation
 ### Start
 ```bash
