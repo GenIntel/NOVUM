@@ -1,2 +1,6 @@
 *.pyc
 data/
+config/novum.yaml
+*bis.py
+.DS_Store
+viz/

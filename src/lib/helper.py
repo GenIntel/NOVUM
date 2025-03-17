@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 import torch
+from pathlib import Path
 from sklearn.metrics import confusion_matrix
 from pytorch3d.renderer import camera_position_from_spherical_angles
 from lib.MeshUtils import (
@@ -33,14 +34,15 @@ def get_object_texture(config, objects_texture, class_, nb_vertices_list) -> tor
 
 
 def prepare_rendering_for_init(config, objects_texture, n_list_set, rasterizer):
-    ## Pre-rendering for all classes
+    # Pre-rendering for all classes
     azum_s = np.linspace(0, np.pi * 2, 12, endpoint=False)
     elev_s = np.linspace(-np.pi / 6, np.pi / 3, 4)
     theta_s = np.linspace(-np.pi / 6, np.pi / 6, 3)
     get_samples = list(itertools.product(azum_s, elev_s, theta_s))
     pre_rendered_maps = []
     for c, class_ in enumerate(config.dataset.classes):
-        xvert, xface = load_off(config.mesh_path % class_, to_torch=True)
+        xvert, xface = load_off(str(
+            Path(config.dataset.paths.root, config.dataset.paths.mesh) / class_ / "01.off"), to_torch=True)
         object_texture = get_object_texture(config, objects_texture, c, n_list_set)
         inter_module = MeshInterpolateModule(
             xvert,

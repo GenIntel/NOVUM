@@ -36,7 +36,7 @@ config = load_config(args, load_default_config=False, log_info=False)
 # General
 n_list_set = []
 for class_ in config.dataset.classes:
-    mesh_path = config.dataset.paths.mesh % class_
+    mesh_path = Path(config.dataset.paths.root, config.dataset.paths.mesh) / class_
     n_list = get_n_list(mesh_path)
     n_list_set.append(n_list[0])
 max_n = max(n_list_set)
@@ -229,7 +229,7 @@ for j, sample in enumerate(tqdm(Pascal3D_dataloader)):
     )
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, gamma=0.2)
 
-    xvert, xface = load_off(config.dataset.paths.mesh % config.dataset.classes[label], to_torch=True)
+    xvert, xface = load_off(str(Path(config.dataset.paths.root, config.dataset.paths.mesh) / config.dataset.classes[label] / "01.off"), to_torch=True)
     inter_module = MeshInterpolateModule(
         xvert.cuda(),
         xface.cuda(),
