@@ -77,6 +77,8 @@ def get_noise_pixel_index(keypoints, max_size, n_samples, obj_mask=None):
     n = keypoints.shape[0]
     # remove the point in keypoints by set probability to 0 otherwise 1 -> mask [n, size] with 0 or 1
     mask = torch.ones((n, max_size), dtype=torch.float32).to(keypoints.device)
+    # if keypoints is negative, set it to 0
+    keypoints = torch.clamp(keypoints, min=0)
     mask = mask.scatter(1, keypoints.type(torch.long), 0.0)
     if obj_mask is not None:
         mask *= obj_mask
@@ -110,10 +112,10 @@ def batched_index_select(t, dim, inds):
     out = t.gather(dim, dummy)  # b * e * f
     return out
 
-
 class NetE2E(nn.Module):
     def __init__(
         self,
+        config,
         pretrain,
         net_type,
         local_size,
@@ -226,6 +228,9 @@ class NetE2E(nn.Module):
         X = torch.transpose(X, 1, 2)
 
         # N, H * W, C * local_size0 * local_size1 -> N, keypoint_all, C * local_size0 * local_size1
+        # check that keypoints_all are all in the range of X.shape
+        keypoint_all[keypoint_all >= X.shape[1]] = 0
+        keypoint_all[keypoint_all < 0] = 0
         X = batched_index_select(X, dim=1, inds=keypoint_all)
 
         # L2norm, fc layer, -> dim along d

@@ -29,7 +29,7 @@ class Pascal3DPlus(Dataset):
         else:
             root_path = Path(
                 config.paths.root, 
-                config.paths.train
+                config.paths.training
             )
         self.weighted = config.weighted
 

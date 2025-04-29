@@ -50,6 +50,7 @@ mesh_path_ref = str(Path(config.dataset.paths.root, config.dataset.paths.mesh))
 classification_size = (int(config.dataset.image_size[0]), int(config.dataset.image_size[1]))
 
 net = NetE2E(
+    config=config,
     net_type="resnetext",
     local_size=(config.model.local_size, config.model.local_size),
     output_dimension=config.model.d_feature,

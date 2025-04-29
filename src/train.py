@@ -23,23 +23,21 @@ bank_set = []
 dataloader_set = []
 n_list_set = []
 mesh_path_set = []
-
-if "%s" in config.dataset.paths.mesh:
-    for class_ in config.dataset.classes:
-        mesh_path = Path(config.dataset.root, config.dataset.paths.mesh % class_)
-        mesh_path_set.append(mesh_path)
-        n_list = get_n_list(mesh_path)
-        n_list_set.append(n_list[0])
+for class_ in config.dataset.classes:
+    mesh_path = Path(config.dataset.paths.root, config.dataset.paths.mesh, class_)
+    mesh_path_set.append(mesh_path)
+    n_list = get_n_list(mesh_path)
+    n_list_set.append(n_list[0])
 
 
 os.makedirs(config.save_dir, exist_ok=True)
 
 net = NetE2E(
-    net_type=config.training.backbone,
+    net_type=config.model.backbone,
     local_size=local_size,
-    output_dimension=config.training.d_feature,
+    output_dimension=config.model.d_feature,
     reduce_function=None,
-    n_noise_points=config.training.num_noise,
+    n_noise_points=config.model.num_noise,
     pretrain=True,
     noise_on_mask=False,
 )
@@ -60,21 +58,18 @@ transforms = transforms.Compose(
 mesh_path = mesh_path_set[0]
 max_n = max(n_list_set)
 fbank = FeatureBank(
-    inputSize=config.training.d_feature,
+    inputSize=config.model.d_feature,
     outputSize=len(config.dataset.classes) * max_n + config.model.num_noise * config.model.max_group,
     num_noise=config.model.num_noise,
     num_pos=len(config.dataset.classes) * max_n,
-    momentum=config.model.adj_momentum,
+    momentum=config.training.adj_momentum,
 )
 fbank = fbank.cuda()
 
 dataset = Pascal3DPlus(
+    config=config.dataset,
+    occlusion="",
     transforms=transforms,
-    rootpath=config.paths.root,
-    mesh_path=mesh_path,
-    anno_path=config.paths.annot,
-    list_path=config.paths.img_list,
-    weighted=True,
     max_n=max_n,
 )
 
@@ -82,7 +77,7 @@ shared_dataloader = DataLoader(
     dataset,
     batch_size=config.training.batch_size,
     shuffle=True,
-    num_workers=config.training.workers,
+    num_workers=config.workers,
 )
 
 criterion = torch.nn.CrossEntropyLoss(reduction="none").cuda()
@@ -109,7 +104,7 @@ zeros = torch.zeros(
 
 
 def save_checkpoint(state, filename):
-    file = os.path.join(config.training.save_dir, filename)
+    file = os.path.join(config.save_dir, filename)
     torch.save(state, file)
 
 

@@ -44,6 +44,7 @@ max_n = max(n_list_set)
 ##########################################################################
 # Feature extraction
 net = NetE2E(
+    config=config,
     net_type=config.model.backbone,
     local_size=[config.model.local_size, config.model.local_size],
     output_dimension=config.model.d_feature,
@@ -69,7 +70,7 @@ fbank = FeatureBank(
     outputSize=len(config.dataset.classes)*max_n+config.model.num_noise*config.model.max_group, 
     num_pos=len(config.dataset.classes) * max_n,
     num_noise=config.model.num_noise,
-    momentum=config.model.adj_momentum,
+    momentum=config.training.adj_momentum,
 )
 fbank.load_memory(checkpoint["memory"].clone().detach().cpu())
 

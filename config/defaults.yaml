@@ -53,15 +53,12 @@ model:
   backbone: resnetext
   num_noise: 5
   max_group: 512
-  adj_momentum: 0.9
   d_feature: 128
   local_size: 1
   ckpt: "/PATH/TO/CHECKPOINT" # TODO: change this 
   down_sample_rate: 8
 
 training:
-  local_size: 1
-  d_feature: 128
   batch_size: 38
   total_epochs: 200
   distance_thr: 48
@@ -70,7 +67,7 @@ training:
   update_lr_epoch_n: 10
   update_lr_: 0.2
   lr: 0.0001
-  momentum: 0.9
+  adj_momentum: 0.9
   accumulate: 10
   weight_decay: 0.0001
   separate_bank: false
