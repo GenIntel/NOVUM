@@ -4,3 +4,5 @@ config/novum.yaml
 *bis.py
 .DS_Store
 viz/
+src/models/playground.py
+output/

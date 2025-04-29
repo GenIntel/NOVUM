@@ -16,6 +16,8 @@ from lib.config import load_config, parse_args
 
 args = parse_args()
 config = load_config(args, load_default_config=False, log_info=False)
+checkpoint_path = config.training.get("checkpoint_path", None)
+start_epoch = 0
 n_gpus = torch.cuda.device_count()
 local_size = [config.model.local_size, config.model.local_size]
 
@@ -31,22 +33,6 @@ for class_ in config.dataset.classes:
 
 
 os.makedirs(config.save_dir, exist_ok=True)
-
-net = NetE2E(
-    net_type=config.model.backbone,
-    local_size=local_size,
-    output_dimension=config.model.d_feature,
-    reduce_function=None,
-    n_noise_points=config.model.num_noise,
-    pretrain=True,
-    noise_on_mask=False,
-)
-net.train()
-if config.model.separate_bank:
-    net = torch.nn.DataParallel(net.cuda(), device_ids=[i for i in range(n_gpus - 1)])
-else:
-    net = torch.nn.DataParallel(net.cuda())
-
 
 transforms = transforms.Compose(
     [
@@ -66,6 +52,36 @@ fbank = FeatureBank(
 )
 fbank = fbank.cuda()
 
+
+net = NetE2E(
+    config=config,
+    net_type=config.model.backbone.type,
+    local_size=local_size,
+    output_dimension=config.model.d_feature,
+    n_noise_points=config.model.num_noise,
+    pretrain=True,
+    noise_on_mask=False,
+)
+iter_num = 0
+optim = torch.optim.Adam(net.parameters(), lr=config.training.lr, weight_decay=config.training.weight_decay)
+if checkpoint_path and os.path.exists(checkpoint_path):
+    print(f"Loading checkpoint from {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path)
+    net.load_state_dict(checkpoint["state"])
+    fbank.memory = checkpoint["memory"]
+    training_status = checkpoint.get("training_status", None)
+    if training_status:
+        start_epoch = training_status["epoch"] + 1
+        iter_num = training_status["iter_num"]
+        optim = torch.optim.Adam(net.parameters(), lr=training_status["lr"], weight_decay=config.training.weight_decay)
+
+net.train()
+if config.training.separate_bank:
+    net = torch.nn.DataParallel(net.cuda(), device_ids=[i for i in range(n_gpus - 1)])
+else:
+    net = torch.nn.DataParallel(net.cuda())
+
+
 dataset = Pascal3DPlus(
     config=config.dataset,
     occlusion="",
@@ -82,8 +98,6 @@ shared_dataloader = DataLoader(
 
 criterion = torch.nn.CrossEntropyLoss(reduction="none").cuda()
 
-iter_num = 0
-optim = torch.optim.Adam(net.parameters(), lr=config.training.lr, weight_decay=config.training.weight_decay)
 last_device = "cuda:%d" % (n_gpus - 1)
 fbank = fbank.cuda(last_device)
 
@@ -109,112 +123,136 @@ def save_checkpoint(state, filename):
 
 
 print("Start Training!")
-for epoch in trange(config.training.total_epochs):
-    if (epoch - 1) % config.training.update_lr_epoch_n == 0:
-        lr = config.training.lr * config.training.update_lr_
-        for param_group in optim.param_groups:
-            param_group["lr"] = lr
 
-    y_num = max_n
-    for i, sample in enumerate(shared_dataloader):
-        img, keypoint, iskpvisible, box_obj, img_label = (
-            sample["img"],
-            sample["kp"],
-            sample["iskpvisible"],
-            sample["box_obj"],
-            sample["label"],
-        )
-        # obj_mask = sample["obj_mask"]
-        index = sample["y_idx"]
+try:
+    for epoch in trange(start_epoch, config.training.total_epochs):
+        if (epoch - 1) % config.training.update_lr_epoch_n == 0:
+            for param_group in optim.param_groups:
+                param_group["lr"] *= config.training.update_lr_
 
-        img = img.cuda()
-        keypoint = keypoint.cuda()
-        iskpvisible = iskpvisible.cuda()
-        # obj_mask = obj_mask.cuda()
-        img_label = img_label.cuda()
-
-        # feature is of shape [batch, -1, d_feature (128 as setted)]
-        features = net.forward(img, keypoint_positions=keypoint)  # , obj_mask=1 - obj_mask)
-
-        # similarity: [n, k, l]
-        if config.training.separate_bank:
-            similarity, y_idx, noise_sim, label_onehot = fbank(
-                features.to(last_device),
-                index.to(last_device),
-                iskpvisible.to(last_device),
-                img_label.to(last_device),
+        y_num = max_n
+        for i, sample in enumerate(shared_dataloader):
+            img, keypoint, iskpvisible, box_obj, img_label = (
+                sample["img"],
+                sample["kp"],
+                sample["iskpvisible"],
+                sample["box_obj"],
+                sample["label"],
             )
-        else:
-            similarity, y_idx, noise_sim, label_onehot = fbank(
-                features,
-                index.cuda(),
-                iskpvisible,
-                img_label,
+            # obj_mask = sample["obj_mask"]
+            index = sample["y_idx"]
+
+            img = img.cuda()
+            keypoint = keypoint.cuda()
+            iskpvisible = iskpvisible.cuda()
+            # obj_mask = obj_mask.cuda()
+            img_label = img_label.cuda()
+
+            # feature is of shape [batch, -1, d_feature (128 as setted)]
+            features = net.forward(img, keypoint_positions=keypoint)  # , obj_mask=1 - obj_mask)
+
+            # similarity: [n, k, l]
+            if config.training.separate_bank:
+                similarity, y_idx, noise_sim, label_onehot = fbank(
+                    features.to(last_device),
+                    index.to(last_device),
+                    iskpvisible.to(last_device),
+                    img_label.to(last_device),
+                )
+            else:
+                similarity, y_idx, noise_sim, label_onehot = fbank(
+                    features,
+                    index.cuda(),
+                    iskpvisible,
+                    img_label,
+                )
+
+            similarity /= config.training.T
+
+            # make near vertice large value for CE, remove effect of near vertices.
+            mask_distance_legal = mask_remove_near(
+                keypoint,
+                thr=config.training.distance_thr,
+                num_neg=config.model.num_noise * config.model.max_group,
+                img_label=img_label,
+                pad_index=pad_index,
+                nb_classes=len(config.dataset.classes),
+                zeros=zeros,
+                dtype_template=similarity,
+                neg_weight=config.training.weight_noise,
             )
 
-        similarity /= config.training.T
+            iskpvisible_float = iskpvisible
+            iskpvisible = iskpvisible.type(torch.bool).to(similarity.device)
 
-        # make near vertice large value for CE, remove effect of near vertices.
-        mask_distance_legal = mask_remove_near(
-            keypoint,
-            thr=config.training.distance_thr,
-            num_neg=config.model.num_noise * config.model.max_group,
-            img_label=img_label,
-            pad_index=pad_index,
-            nb_classes=len(config.dataset.classes),
-            zeros=zeros,
-            dtype_template=similarity,
-            neg_weight=config.training.weight_noise,
-        )
-
-        iskpvisible_float = iskpvisible
-        iskpvisible = iskpvisible.type(torch.bool).to(iskpvisible.device)
-
-        # Keypoints loss
-        loss = criterion(
-            (
-                similarity.view(-1, similarity.shape[2])
-                - mask_distance_legal.view(-1, similarity.shape[2])
-            )[
-                iskpvisible.view(-1),
-                :,
-            ],
-            y_idx.view(-1)[iskpvisible.view(-1)],
-        )
-
-        loss = torch.mean(loss)
-
-        loss_main = loss.item()
-        if config.model.num_noise > 0:
-            # The loss of noise
-            loss_reg = torch.mean(noise_sim) * 0.1
-            loss += loss_reg
-        else:
-            loss_reg = torch.zeros(1)
-
-        loss.backward()
-        if iter_num % config.training.accumulate == 0:
-            optim.step()
-            optim.zero_grad()
-            print(
-                "n_iter",
-                iter_num,
-                "epoch",
-                epoch,
-                "loss",
-                "%.5f" % loss_main,
-                "loss_reg",
-                "%.5f" % loss_reg.item(),
+            # Keypoints loss
+            loss = criterion(
+                (
+                    similarity.view(-1, similarity.shape[2])
+                    - mask_distance_legal.view(-1, similarity.shape[2])
+                )[
+                    iskpvisible.view(-1),
+                    :,
+                ],
+                y_idx.view(-1)[iskpvisible.view(-1)],
             )
-        iter_num += 1
 
-    if (epoch + 1) % 40 == 0:
-        save_checkpoint(
-            {
-                "state": net.state_dict(),
-                "memory": fbank.memory,
-                "timestamp": int(datetime.timestamp(datetime.now())),
-                "args": args,
-            },
-            "classification_saved_model_%02d.pth" % epoch,
-        )
+            loss = torch.mean(loss)
+
+            loss_main = loss.item()
+            if config.model.num_noise > 0:
+                # The loss of noise
+                loss_reg = torch.mean(noise_sim) * 0.1
+                loss += loss_reg
+            else:
+                loss_reg = torch.zeros(1)
+
+            loss.backward()
+            if iter_num % config.training.accumulate == 0:
+                optim.step()
+                optim.zero_grad()
+                print(
+                    "n_iter",
+                    iter_num,
+                    "epoch",
+                    epoch,
+                    "loss",
+                    "%.5f" % loss_main,
+                    "loss_reg",
+                    "%.5f" % loss_reg.item(),
+                )
+            iter_num += 1
+
+        if (epoch + 1) % 5 == 0:
+            save_checkpoint(
+                {
+                    "state": net.state_dict(),
+                    "memory": fbank.memory,
+                    "timestamp": int(datetime.timestamp(datetime.now())),
+                    "args": args,
+                    "training_status": {
+                        "epoch": epoch,
+                        "iter_num": iter_num,
+                        "lr": optim.param_groups[0]["lr"],
+                    }
+                    
+                },
+                "classification_saved_model_%02d.pth" % epoch,
+            )
+except Exception as e:
+    print(f"Exception during training: {e}. Saving checkpoint.")
+    save_checkpoint(
+        {
+            "state": net.state_dict(),
+            "memory": fbank.memory,
+            "timestamp": int(datetime.timestamp(datetime.now())),
+            "args": args,
+            "training_status": {
+                "epoch": epoch,
+                "iter_num": iter_num,
+                "lr": optim.param_groups[0]["lr"],
+            }
+        },
+        "classification_error_checkpoint.pth"
+    )
+    raise e

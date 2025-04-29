@@ -5,12 +5,16 @@ import torchvision.models as models
 
 from .UpsamplingLayer import DoubleConv
 from .UpsamplingLayer import Up
+from .dpt import build_vit
+from detectron2.layers import ShapeSpec
 
 net_stride = {
     "resnetext": 8,
+    "dinov2": 2,
 }
 net_out_dimension = {
     "resnetext": 256,
+    "dinov2": 256,
 }
 
 class ResNetExt(nn.Module):
@@ -64,6 +68,9 @@ def resnetext(pretrain):
     net = ResNetExt(pretrained=pretrain)
     return net
 
+def dino_dpt(config):
+    net = build_vit(config.model, input_shape=ShapeSpec(channels=3, height=config.dataset.image_size[0], width=config.dataset.image_size[1]))
+    return net
 
 def keypoints_to_pixel_index(keypoints, downsample_rate, original_img_size=(480, 640)):
     line_size = original_img_size[1] // downsample_rate
@@ -127,6 +134,8 @@ class NetE2E(nn.Module):
         super().__init__()
         if net_type == "resnetext":
             self.net = resnetext(pretrain)
+        elif net_type == "dinov2":
+            self.net = dino_dpt(config)
         else:
             raise ValueError("Unknown net type")
 
