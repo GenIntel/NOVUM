@@ -13,14 +13,13 @@ def display_results(class_gds, class_preds, pose_errors, thresholds=[np.pi / 6, 
     class_preds = np.array(class_preds)
     acc = np.mean(class_gds == class_preds)
     print("*** Results: ***\nClassification accuracy : {acc:.03f}".format(acc=acc))
-    
-    for threshold in thresholds:
-        pose_acc = np.mean(np.array(pose_errors) < threshold)
-        print("Pose accuracy (error < {threshold:.03f}): {acc:.03f}".format(threshold=threshold, acc=pose_acc))
-    
-    pose_err_median = 180 / np.pi * np.median(np.array(pose_errors))
-    print("Pose median error: {med_err:.03f}°".format(med_err=pose_err_median))
-    
+    if pose_errors is not None:
+        for threshold in thresholds:
+            pose_acc = np.mean(np.array(pose_errors) < threshold)
+            print("Pose accuracy (error < {threshold:.03f}): {acc:.03f}".format(threshold=threshold, acc=pose_acc))
+        pose_err_median = 180 / np.pi * np.median(np.array(pose_errors))
+        print("Pose median error: {med_err:.03f}°".format(med_err=pose_err_median))
+
 
     # print confusion matrix
     print("Confusion matrix:\n", (confusion_matrix(class_gds, class_preds)))

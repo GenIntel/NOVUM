@@ -50,7 +50,8 @@ dataset:
     - "bbox"
 
 model:
-  backbone: resnetext
+  backbone:
+    type: resnetext
   num_noise: 5
   max_group: 512
   d_feature: 128

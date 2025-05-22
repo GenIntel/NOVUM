@@ -51,7 +51,7 @@ classification_size = (int(config.dataset.image_size[0]), int(config.dataset.ima
 
 net = NetE2E(
     config=config,
-    net_type="resnetext",
+    net_type=config.model.backbone.type,
     local_size=(config.model.local_size, config.model.local_size),
     output_dimension=config.model.d_feature,
     n_noise_points=config.model.num_noise,

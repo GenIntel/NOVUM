@@ -45,7 +45,7 @@ max_n = max(n_list_set)
 # Feature extraction
 net = NetE2E(
     config=config,
-    net_type=config.model.backbone,
+    net_type=config.model.backbone.type,
     local_size=[config.model.local_size, config.model.local_size],
     output_dimension=config.model.d_feature,
     n_noise_points=config.model.num_noise,
